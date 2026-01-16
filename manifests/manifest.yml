@@ -1,0 +1,172 @@
+---
+# Source: helm_templates/templates/job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etl
+  namespace: data-msgpt-dev
+  labels:
+    app: etl
+    instance: dev
+    version: 1.1.0-feat_unit_test
+spec:
+  template:
+    metadata:
+      labels:
+        app: etl
+    spec:
+      containers:
+        - name: kerberos-bundle
+          securityContext:
+            {}
+          image: "quay.bisinfo.org/data-bisgpt/kerberos-bundle:1.0.3"
+          imagePullPolicy: Always  # end command  # end args  # end ports
+          startupProbe:
+            exec:
+              command: 
+                - /bin/sh
+                - -c
+                - klist
+                - -s
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: 
+                - /bin/sh
+                - -c
+                - klist
+                - -s
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: 
+                - /bin/sh
+                - -c
+                - klist
+                - -s
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3  # end readiness probe  # end probes
+          resources:
+            limits:
+              cpu: 200m
+              memory: 900Mi
+            requests:
+              cpu: 100m
+              memory: 600Mi
+          env:
+            - name: ACCOUNT
+              value: xbgsbisgptdbd
+            - name: ADDOMAIN
+              value: BISAD.BISINFO.ORG
+            - name: KRB5CCNAME
+              value: /dev/shm/kerberos/ccache
+            - name: KEYTAB_FILE
+              value: krb5_64.keytab
+            - name: PSWSECRET
+              valueFrom:
+                secretKeyRef:
+                  key: psw
+                  name: password-krb
+            - name: NO_REKINIT
+              value: '1'
+          volumeMounts:
+            - name: ccache
+              mountPath: /dev/shm/kerberos
+        - name: etl
+          image: "quay.bisinfo.org/data-bisgpt/bis-gpt-rag-etl:1.1.0-feat_unit_test"
+          imagePullPolicy: Always
+          command:
+              - python
+          args:
+              - -m
+              - ETL.run_workflow
+          resources:
+                limits:
+                  cpu: 200m
+                  memory: 600Mi
+                requests:
+                  cpu: 100m
+                  memory: 300Mi
+          env:
+            - name: RAG_APP_ID
+              value: "20"
+            - name: APP_REGISTRY_ADDRESS
+              value: "bis-gpt-app-registry-service.data-bisgpt-dev.svc.cluster.local"
+            - name: APP_REGISTRY_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-reg-secrets
+                  key: AppRegSecret
+            - name: ETL_CHUNK_AUGMENTATION_STRATEGY
+              value: "resume_on_top"
+            - name: ETL_PROD_ENV
+              value: "false"
+            - name: ETL_DOWNLOAD_AS_PDF
+              value: "false"
+            - name: MSSQL_SERVER
+              value: "wdchio2964.bisad.bisinfo.org,55001"
+            - name: MSSQL_DB_NAME
+              value: "bis_gpt_persistence"
+            - name: AZURE_OAI_ENDPOINT
+              value: "https://api-dev.bisinfo.org/int/its/v1/ai-services/interactive"
+            - name: AZURE_OAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ms-rag
+                  key: ApigeeKey
+            - name: AZURE_OAI_DEPLOYMENT
+              value: "gpt4o"
+            - name: AZURE_OAI_API_VERSION
+              value: "2025-04-01-preview"
+            - name: AZURE_OAI_EMB_ENDPOINT
+              value: "https://oai-bispoc-dev-001.openai.azure.com/"
+            - name: AZURE_OAI_EMB_DEPLOYMENT
+              value: "text-embedding-3-large"
+            - name: AZURE_OAI_EMB_API_VERSION
+              value: "2025-04-01-preview"
+            - name: AZURE_OAI_EMB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ms-rag
+                  key: azureOaiEmbApiKey
+            - name: WEAVIATE_URL
+              value: "weaviate-service.data-msgpt-dev.svc.cluster.local"
+            - name: WEAVIATE_COLLECTION_NAME
+              value: "modular_etl"
+            - name: CHAT_MAX_MESSAGES_RETAINED
+              value: "20"
+            - name: DI_ENDPOINT
+              value: "https://api-dev.bisinfo.org/int/its/v1"
+            - name: DI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ms-rag
+                  key: docIntellApiKey
+            - name: SPO_CLIENT_ID
+              value: "86ade3ec-27b0-4b66-8b85-acc2bfa3e432"
+            - name: SPO_ROOT
+              value: "/sites/prod-MeetingServicesGPT"
+            - name: SPO_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ms-rag
+                  key: spoSecret
+            - name: SPO_MAIN_FOLDER_PATH
+              value: "GPT%20Feeding%20Documents"
+          volumeMounts:
+            - name: ccache
+              mountPath: /dev/shm
+      volumes:
+        - name: ccache
+          emptyDir:
+            medium: Memory
+
+      restartPolicy: Never

@@ -1,0 +1,20 @@
+# Test dependencies for ETL pipeline
+# Install with: pip install -r requirements-test.txt
+
+# Core testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-timeout>=2.1.0
+pytest-xdist>=3.3.0  # For parallel test execution
+
+# Mocking and fixtures
+responses>=0.23.0
+freezegun>=1.2.0  # For time-based testing
+
+# Code quality
+ruff>=0.13.1  # Already in main requirements
+
+# Optional: For test reports
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0

@@ -1,0 +1,22 @@
+
+services:
+  weaviate:
+    image: nexus.bisinfo.org:8099/semitechnologies/weaviate:1.31.6
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      BACKUP_FILESYSTEM_PATH: '/var/lib/weaviate/backups'
+      ENABLE_MODULES: 'backup-filesystem'
+      ENABLE_API_BASED_MODULES: 'true'
+      CLUSTER_HOSTNAME: 8b74d0d33744
+      MODULES_CLIENT_TIMEOUT: '100s'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    restart: on-failure:0
+
+volumes:
+  weaviate_data:

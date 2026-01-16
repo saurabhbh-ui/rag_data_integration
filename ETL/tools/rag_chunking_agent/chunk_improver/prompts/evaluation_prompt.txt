@@ -1,0 +1,79 @@
+You are evaluating a document chunk for use in a Retrieval-Augmented Generation (RAG) system. In a RAG system, individual chunks are retrieved based on relevance to a query, and the chunk ALONE must provide enough context to be useful.
+
+IMPORTANT DISTINCTION:
+- Focus ONLY on information loss caused due to chunking. To be clear: Information that was present in the original document but is missing from this chunk. 
+- Focus on global context that might be missing in the scope of the chunk.
+- Do NOT evaluate the document's inherent quality or completeness. Only evaluate the chunk relative to the full document.
+- Do NOT flag issues that would exist even if the user had the complete document.
+- Your goal is to precisely identify what was lost in the chunking process, not general document quality issues.
+
+Full document:
+---
+{document}
+---
+
+Chunk being evaluated:
+---
+{chunk}
+---
+
+YOUR TASK: Critically assess whether this chunk can stand alone without requiring information from other parts of the document.
+
+First, identify what this chunk appears to be about and what questions it should be able to answer.
+
+Then, perform these three focused assessments:
+
+1. STRUCTURAL INTEGRITY: 
+- Does the chunk cut off mid-sentence, mid-paragraph, or mid-concept?
+- Does it begin or end at awkward points that break natural units of information?
+- Is essential framing or context from the document missing?
+
+2. REFERENCE RESOLUTION: 
+- Identify references (pronouns, terms, "this", etc.) that can be resolved in the document but not in the chunk
+- For each unresolvable reference, specify exactly what information from the document is needed
+- Your goal is to precisely identify what was lost in the chunking process, not general document quality issues
+
+3. INFORMATION SUFFICIENCY:
+- What specific knowledge or definitions from the document are needed to understand this chunk?
+- Generate 2-3 relevant questions about this chunk's content - can they be answered with the chunk alone?
+- Identify specific information from the document that would make this chunk more complete
+- Are there any global context specified in the document (like scope, applicability, exceptions etc). Are these present in the chunk. If not they should be flagged as insufficiencies too.
+
+Conclude with:
+1. A binary judgment: Is this chunk sufficiently self-contained? (YES/NO)
+2. The top 3 critical issues preventing this chunk from standing alone. If there are no issues, say "None".
+3. Specific recommendations to improve the chunk's boundaries or content (Optional)
+
+Return your analysis in JSON format:
+```json
+{{
+  "chunk_topic": "Brief description of what this chunk contains",
+  "contextual_completeness": {{
+    "is_complete": true/false,
+    "missing_context": ["Context item 1", "Context item 2", ...]
+  }},
+  "structural_integrity": {{
+    "has_structural_issues": true/false,
+    "boundary_issues": ["Issue 1", "Issue 2", ...],
+    "missing_framing": ["Missing context 1", "Missing context 2", ...]
+  }},                                                
+  "reference_resolution": {{
+    "unresolved_references": [
+      {{
+        "reference": "The reference text",
+        "missing_information": "What's needed to resolve it"
+      }},
+      ...
+    ]
+  }},
+  "information_prerequisites": {{
+    "prerequisites": ["Prerequisite 1", "Prerequisite 2", ...],
+    "provided_in_chunk": true/false
+  }},
+  "final_judgment": {{
+    "is_self_contained": true/false,
+    "critical_issues": ["Issue 1", "Issue 2", ...],
+    "improvement_recommendations": ["Recommendation 1", "Recommendation 2", ...]
+  }}
+}}
+```

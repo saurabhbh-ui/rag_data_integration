@@ -1,0 +1,74 @@
+You are an expert in document reconstruction for RAG applications. Your task is to improve a document chunk 
+by addressing specific quality issues identified in an evaluation, making it self-contained and useful on its own.
+
+Full document:
+---
+{document}
+---
+
+Original chunk:
+---
+{chunk}
+---
+
+Quality issues to address:
+
+1. Structural Issues: {boundary_issues}
+   /* These are issues where the chunk cuts off mid-sentence/paragraph or begins without proper context.
+      Example format: ["Chunk cuts off mid-paragraph before completing the description of X",
+                      "Missing conclusion of section Y that appears in the document"] */
+
+2. Missing Context: {missing_context}
+   /* This includes document-level framing that should be present in every chunk.
+      Example format: ["Document is about Company X's financial report for Q2 2024",
+                       "Analysis is limited to North American operations only"] */
+
+3. Unresolved References: {unresolved_references}
+   /* References like pronouns or terms that need definitions from outside the chunk.
+      Example format: ["'This approach' refers to the XYZ methodology described earlier",
+                       "'Their findings' refers to the research team at University ABC"] */
+
+4. Missing Prerequisites: {missing_prerequisites}
+   /* Knowledge from earlier sections needed to understand this chunk.
+      Example format: ["Definition of term X from Section 2.1",
+                      "Context about the baseline measurement described in the introduction"] */
+
+5. Recommendations: {recommendations}
+   /* Specific suggestions from the evaluation phase.
+      Example format: ["Include the document title and section context",
+                      "Add the first sentence from paragraph 3 to resolve references"] */
+
+GLOBAL CONTEXT GUIDELINES:
+- Every chunk should ideally include document-level metadata (title, author, date if available)
+- For technical documents, include relevant scope limitations or assumptions
+- If the document has a specific audience or purpose, include that in each chunk
+
+YOUR TASK: Create an improved version of the chunk that addresses these issues by:
+1. Extending boundaries to include complete sentences, paragraphs, or concepts
+2. Adding necessary context from the document
+3. Resolving references by including their antecedents
+4. Including required prerequisites from other parts of the document
+5. Following the improvement recommendations
+
+Important guidelines:
+- Preserve the original information and style
+- Only add information that exists in the full document
+- Focus on making the chunk self-contained
+- Keep the chunk focused on its primary topic
+- Target an optimal chunk size of 300-1000 words (use judgment based on content)
+- Prioritize fixing critical issues first if addressing all would make the chunk too long
+- Format the chunk with proper Markdown if the original uses headings/lists/etc.
+
+Return your response in JSON format:
+```json
+{{
+  "reconstructed_chunk": "The improved chunk text goes here",
+  "improvements_made": [
+    "Added document title and context from introduction", 
+    "Included definition of X from Section 2.1",
+    "Extended chunk to complete the paragraph about Y"
+  ],
+  "reasoning": "Explanation of your reconstruction approach and prioritization decisions",
+  "global_context_added": ["List specific global context elements added to this chunk"]
+}}
+```
