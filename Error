@@ -2,7 +2,7 @@ from langgraph.graph import StateGraph, START, END
 from typing_extensions import TypedDict, Literal, Annotated, List
 import operator
 from pydantic import BaseModel, Field
-
+import statistics
 
 class feedback_score(BaseModel):
 
@@ -19,11 +19,19 @@ class State(TypedDict):
     score_doa: Annotated[int, Field(description="Depth of analysis Score on the essay.")]
     feedback_language: Annotated[str, Field(description="Language and grammar feedback on the essay.")]
     score_language: Annotated[int, Field(description="Language and grammar Score on the essay.")]
-    final_feedback: Annotated[str, Field(description="Feedback summarizer after incorporating feedbacks from cot, doa, language.")]
+    final_feedback: str
     final_avg_score: Annotated[float, Field(description="Average score from cot, doa, language.")]
+    individual_scores: Annotated[List, operator.add]
 
 def generate_assay(state: State):
-    p = f"Generate detailed essay on the topic: {state['topic']}. Please make it atleast 500 words. Please use markdown formatting for the essay."
+
+    if state.get('final_feedback'):
+        p = f"""Generate detailed essay on the topic: {state['topic']}. Please make it atleast 500 words. Do consider feedbacks to improve the essay.
+        Please use markdown formatting for the essay."""
+    
+    else:
+        p = f"Generate detailed essay on the topic: {state['topic']}. Please make it atleast 500 words. Please use markdown formatting for the essay."
+    
     result = llm.invoke(p)
     return {'assay': result.content}
 
@@ -31,36 +39,35 @@ def feedback_clarity_of_thought(state: State):
     structured_llm = llm.with_structured_output(feedback_score)
     p = f"Provide feedback to the generated assay based on clarity of thought. Essay: {state['assay']}. Please provide score from 1 to 10 and justification for the score. Moreover, explain what can be done to improve clarity of thought in the essay."
     response = structured_llm.invoke(p)
-    state['feedback_cot'] = response.justification
-    state['score_cot'] = response.score
-    return state
+    return {'feedback_cot':response.justification, 'score_cot': response.score, 'individual_scores': [response.score]}
 
 def feedback_depth_of_analysis(state: State):
     structured_llm = llm.with_structured_output(feedback_score)
     p = f"Provide feedback to the generated assay based on depth of analysis. Essay: {state['assay']}. Please provide score from 1 to 10 and justification for the score. Moreover, explain what can be done to improve depth of analysis in the essay."
     response = structured_llm.invoke(p)
-    state['feedback_doa'] = response.justification
-    state['score_doa'] = response.score
-    return state
+    return {'feedback_doa': response.justification, 'score_doa': response.score, 'individual_scores': [response.score]}
 
 def feedback_language_grammar(state: State):
     structured_llm = llm.with_structured_output(feedback_score)
     p = f"Provide feedback to the generated assay based on language and grammar. Essay: {state['assay']}. Please provide score from 1 to 10 and justification for the score. Moreover, explain what can be done to improve language and grammar in the essay."
     response = structured_llm.invoke(p)
-    state['feedback_language'] = response.justification
-    state['score_language'] = response.score
-    return state
-
+    return {'feedback_language':response.justification, 'score_language': response.score, 'individual_scores': [response.score]}
 
 def final_summarizer(state: State):
-    avg_score = (state['score_cot'] + state['score_doa'] + state['score_language']) / 3
-    state['final_avg_score'] = avg_score
+    #avg_score = statistics.mean(state["individual_scores"])
+    avg_score = sum(state["individual_scores"]) / len(state["individual_scores"])
     p = f"Summarize the feedbacks provided for the essay: \n{state['assay']}.\n\n\nPlease incorporate feedbacks from clarity of thought: \n{state['feedback_cot']}, \n\n\ndepth of analysis: \n{state['feedback_doa']}, \n\n\nlanguage and grammar: \n{state['feedback_language']} to provide final feedback to improve the essay."
     result = llm.invoke(p)
-    state['final_feedback'] = result.content
-    return state
+    return {'final_feedback': result.content, 'final_avg_score': avg_score}
 
 
+def decision(state: State):
+
+    if all(n == 10 for n in state['individual_scores']):
+        return 'accepted'
+    else:
+        return 'try_again'
+    
 
 workflow = StateGraph(State)
 workflow.add_node("generate_assay", generate_assay)
@@ -77,7 +84,9 @@ workflow.add_edge("generate_assay","feedback_language_grammar")
 workflow.add_edge("feedback_clarity_of_thought", "final_summarizer")
 workflow.add_edge("feedback_depth_of_analysis", "final_summarizer")
 workflow.add_edge("feedback_language_grammar", "final_summarizer")
+workflow.add_conditional_edges("final_summarizer", decision, {'accepted': END, 'try_again': "generate_assay"})
+
+
 workflow.add_edge("final_summarizer", END)
 
 chain = workflow.compile()
-result = chain.invoke({"topic":"digital fraud"})
